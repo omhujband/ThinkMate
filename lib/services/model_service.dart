@@ -6,7 +6,7 @@ import 'package:runanywhere_onnx/runanywhere_onnx.dart';
 /// Service for managing AI models
 class ModelService extends ChangeNotifier {
   // Model IDs - using officially supported models from RunanywhereAI/sherpa-onnx
-  static const String llmModelId = 'Llama-3.2-1B-Instruct.Q8_0';
+  static const String llmModelId = 'Llama-3.2-1B-Instruct-Q4-v1';
   static const String sttModelId = 'sherpa-onnx-whisper-tiny.en';
   static const String ttsModelId = 'vits-piper-en_US-lessac-medium';
 
@@ -46,13 +46,13 @@ class ModelService extends ChangeNotifier {
   /// Register default models with the SDK
   /// Using officially supported models from RunanywhereAI/sherpa-onnx for compatibility
   static void registerDefaultModels() {
-    // LLM Model - Llama 3.2 1B Instruct Q8_0
+    // LLM Model - Llama 3.2 1B Instruct (Stable Q4_K_M)
     LlamaCpp.addModel(
       id: llmModelId,
-      name: 'Llama 3.2 1B Instruct Q8_0',
+      name: 'Llama 3.2 1B Instruct',
       url:
-          'https://huggingface.co/prithivMLmods/Llama-3.2-1B-Instruct-f32-GGUF/resolve/main/Llama-3.2-1B-Instruct.Q8_0.gguf',
-      memoryRequirement: 1200000000, // ~1.2GB
+          'https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf',
+      memoryRequirement: 800000000, // ~800MB
     );
 
     // STT Model - Whisper Tiny English (fast transcription)

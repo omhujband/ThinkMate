@@ -6,6 +6,7 @@ import 'package:runanywhere_onnx/runanywhere_onnx.dart';
 
 import 'services/model_service.dart';
 import 'services/progress_service.dart';
+import 'services/document_service.dart';
 import 'theme/app_theme.dart';
 import 'views/home_view.dart';
 
@@ -22,15 +23,19 @@ void main() async {
   // Register models
   ModelService.registerDefaultModels();
 
-  // Initialize progress tracking
+  // Initialize services
   final progressService = ProgressService();
   await progressService.init();
+
+  final documentService = DocumentService();
+  await documentService.init();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ModelService()),
         ChangeNotifierProvider.value(value: progressService),
+        ChangeNotifierProvider.value(value: documentService),
       ],
       child: const ThinkMateApp(),
     ),

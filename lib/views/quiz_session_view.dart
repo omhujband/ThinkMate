@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
+import 'package:runanywhere/runanywhere.dart';
 
 import '../services/ai_tutor_service.dart';
+import '../services/document_service.dart';
 import '../services/progress_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/quiz_option_card.dart';
@@ -10,8 +12,9 @@ import 'quiz_result_view.dart';
 
 class QuizSessionView extends StatefulWidget {
   final String subject;
+  final DocumentData? documentContext;
 
-  const QuizSessionView({super.key, required this.subject});
+  const QuizSessionView({super.key, required this.subject, this.documentContext});
 
   @override
   State<QuizSessionView> createState() => _QuizSessionViewState();
@@ -69,54 +72,69 @@ class _QuizSessionViewState extends State<QuizSessionView> {
 
     try {
       final previousTopics = _records.map((r) => r.question.question).join(', ');
-      final streamResult = await AiTutorService.generateQuizQuestion(
-        subject: widget.subject,
-        difficulty: _currentDifficulty,
-        previousContext: previousTopics.isNotEmpty ? previousTopics : null,
-      );
+      late final LLMStreamingResult streamResult;
+
+      if (widget.documentContext != null) {
+        // Document-based quiz: retrieve a chunk and generate from it
+        final docService = context.read<DocumentService>();
+        final chunk = docService.getRandomChunk(document: widget.documentContext);
+        streamResult = await AiTutorService.generateQuizFromDocument(
+          documentChunk: chunk,
+          difficulty: _currentDifficulty,
+          previousContext: previousTopics.isNotEmpty ? previousTopics : null,
+        );
+      } else {
+        streamResult = await AiTutorService.generateQuizQuestion(
+          subject: widget.subject,
+          difficulty: _currentDifficulty,
+          previousContext: previousTopics.isNotEmpty ? previousTopics : null,
+        );
+      }
 
       await for (final token in streamResult.stream) {
         _rawResponse += token;
       }
 
+      // Debug: print raw LLM output to help diagnose parsing issues
+      debugPrint('Quiz raw response: $_rawResponse');
+
       final parsed = AiTutorService.parseQuizQuestion(_rawResponse);
 
       if (mounted) {
         setState(() {
-          _currentQuestion = parsed;
+          if (parsed != null) {
+            _currentQuestion = parsed;
+          } else {
+            // Show raw AI response as a question so user sees what was generated
+            _currentQuestion = QuizQuestion(
+              question: _rawResponse.isNotEmpty
+                  ? _rawResponse
+                  : 'AI could not generate a question. Please try again.',
+              options: {'A': 'Try Again'},
+              correctAnswer: 'A',
+              explanation: 'The AI response could not be parsed into a proper quiz format. Tap "Next" to generate another question.',
+            );
+          }
           _isLoading = false;
         });
-
-        // If parsing failed, generate a fallback
-        if (parsed == null) {
-          _generateFallbackQuestion();
-        }
       }
     } catch (e) {
+      debugPrint('Quiz generation error: $e');
       if (mounted) {
         setState(() {
+          _currentQuestion = QuizQuestion(
+            question: 'Failed to generate question: $e',
+            options: {'A': 'Retry'},
+            correctAnswer: 'A',
+            explanation: 'An error occurred. Tap "Next" to try again.',
+          );
           _isLoading = false;
         });
-        _generateFallbackQuestion();
       }
     }
   }
 
-  void _generateFallbackQuestion() {
-    setState(() {
-      _currentQuestion = QuizQuestion(
-        question: 'About ${widget.subject}: What concept is most fundamental?',
-        options: {
-          'A': 'Core principles',
-          'B': 'Advanced theory',
-          'C': 'Historical context',
-          'D': 'Practical applications',
-        },
-        correctAnswer: 'A',
-        explanation: 'Core principles form the foundation of any subject.',
-      );
-    });
-  }
+
 
   void _selectAnswer(String answer) {
     if (_isRevealed || _currentQuestion == null) return;

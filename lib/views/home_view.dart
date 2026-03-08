@@ -6,6 +6,7 @@ import '../services/progress_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/feature_card.dart';
 import '../widgets/stat_card.dart';
+import 'document_upload_view.dart';
 import 'quiz_view.dart';
 import 'concept_simplifier_view.dart';
 import 'language_practice_view.dart';
@@ -57,15 +58,25 @@ class HomeView extends StatelessWidget {
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 25),
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: 16,
                     crossAxisSpacing: 16,
-                    childAspectRatio: 0.85,
+                    childAspectRatio: 0.70,
                   ),
                   delegate: SliverChildListDelegate([
+                    FeatureCard(
+                      title: 'Study Material',
+                      subtitle: 'Upload PDF & Learn',
+                      icon: Icons.menu_book_rounded,
+                      gradientColors: const [
+                        AppColors.accentOrange,
+                        Color(0xFFD97706),
+                      ],
+                      onTap: () => _navigateTo(context, const DocumentUploadView()),
+                    ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.2),
                     FeatureCard(
                       title: 'Quiz',
                       subtitle: 'Adaptive AI Quizzes',
@@ -75,7 +86,7 @@ class HomeView extends StatelessWidget {
                         Color(0xFF0EA5E9),
                       ],
                       onTap: () => _navigateTo(context, const QuizView()),
-                    ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.2),
+                    ).animate().fadeIn(delay: 450.ms).slideY(begin: 0.2),
                     FeatureCard(
                       title: 'Simplify',
                       subtitle: 'Concept Breakdown',

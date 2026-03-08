@@ -6,12 +6,15 @@ import 'package:provider/provider.dart';
 import 'package:runanywhere/runanywhere.dart';
 
 import '../services/ai_tutor_service.dart';
+import '../services/document_service.dart';
 import '../services/model_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/model_loader_widget.dart';
 
 class ConceptSimplifierView extends StatefulWidget {
-  const ConceptSimplifierView({super.key});
+  final DocumentData? document;
+
+  const ConceptSimplifierView({super.key, this.document});
 
   @override
   State<ConceptSimplifierView> createState() => _ConceptSimplifierViewState();
@@ -69,6 +72,34 @@ class _ConceptSimplifierViewState extends State<ConceptSimplifierView> {
 
           return Column(
             children: [
+              if (widget.document != null)
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentCyan.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.accentCyan.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.picture_as_pdf_rounded, size: 14, color: AppColors.accentCyan),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'From: ${widget.document!.title}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.accentCyan,
+                                fontSize: 11,
+                              ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: _messages.isEmpty
                     ? _buildEmptyState()
@@ -120,12 +151,18 @@ class _ConceptSimplifierViewState extends State<ConceptSimplifierView> {
               spacing: 8,
               runSpacing: 8,
               alignment: WrapAlignment.center,
-              children: [
-                _buildSuggestionChip('Explain quantum computing'),
-                _buildSuggestionChip('How does photosynthesis work?'),
-                _buildSuggestionChip('What is machine learning?'),
-                _buildSuggestionChip('Explain the theory of relativity'),
-              ],
+              children: widget.document != null
+                  ? [
+                      _buildSuggestionChip('Summarize the main topics'),
+                      _buildSuggestionChip('Explain the key concepts'),
+                      _buildSuggestionChip('What are the main takeaways?'),
+                    ]
+                  : [
+                      _buildSuggestionChip('Explain quantum computing'),
+                      _buildSuggestionChip('How does photosynthesis work?'),
+                      _buildSuggestionChip('What is machine learning?'),
+                      _buildSuggestionChip('Explain the theory of relativity'),
+                    ],
             ),
           ],
         ),
@@ -308,7 +345,7 @@ class _ConceptSimplifierViewState extends State<ConceptSimplifierView> {
 
   Widget _buildInputArea() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.surfaceCard.withOpacity(0.8),
         border: Border(
@@ -399,7 +436,17 @@ class _ConceptSimplifierViewState extends State<ConceptSimplifierView> {
     _scrollToBottom();
 
     try {
-      _streamingResult = await AiTutorService.simplifyConcept(text);
+      if (widget.document != null) {
+        // Document-based simplification
+        final docService = context.read<DocumentService>();
+        final chunk = docService.findRelevantChunk(text, document: widget.document);
+        _streamingResult = await AiTutorService.simplifyFromDocument(
+          topic: text,
+          documentChunk: chunk,
+        );
+      } else {
+        _streamingResult = await AiTutorService.simplifyConcept(text);
+      }
 
       await for (final token in _streamingResult!.stream) {
         if (!mounted) return;

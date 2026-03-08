@@ -2,6 +2,8 @@ import 'package:runanywhere/runanywhere.dart';
 
 /// AI Tutor service that wraps RunAnywhere LLM with educational prompts
 class AiTutorService {
+  // ── System Prompts ──
+
   static const _quizSystemPrompt = '''You are a quiz generator for students. Generate exactly one multiple-choice question.
 
 RULES:
@@ -9,6 +11,24 @@ RULES:
 - One question with exactly 4 options labeled A, B, C, D
 - One correct answer letter
 - A brief explanation
+
+FORMAT:
+Q: [question text]
+A) [option A]
+B) [option B]
+C) [option C]
+D) [option D]
+ANSWER: [letter]
+EXPLANATION: [brief explanation]''';
+
+  static const _quizFromDocPrompt = '''You are a quiz generator. Generate exactly one multiple-choice question based ONLY on the provided study material.
+
+RULES:
+- The question MUST be answerable from the provided content
+- Output ONLY in this exact format
+- One question with exactly 4 options labeled A, B, C, D
+- One correct answer letter
+- A brief explanation referencing the material
 
 FORMAT:
 Q: [question text]
@@ -28,6 +48,14 @@ RULES:
 - Use numbered steps when explaining processes
 - End with a brief summary''';
 
+  static const _simplifierFromDocPrompt = '''You are ThinkMate, a friendly AI tutor. Explain the concept using ONLY the provided study material as your knowledge source.
+
+RULES:
+- Use ONLY information from the provided material
+- Break down the concept into simple steps
+- Use examples from the material when possible
+- Keep language simple and engaging''';
+
   static const _languagePracticePrompt = '''You are a language conversation partner for English practice.
 
 RULES:
@@ -36,6 +64,17 @@ RULES:
 - In feedback, note any grammar or fluency improvements the user could make
 - Keep responses conversational and encouraging
 - If the user's message has errors, gently correct them in the feedback''';
+
+  static const _conversationFromDocPrompt = '''You are ThinkMate, a friendly AI study tutor. Answer the student's question using ONLY the provided study material.
+
+RULES:
+- Use ONLY information from the provided material to answer
+- Be conversational and encouraging
+- If the answer is not in the material, say so honestly
+- Give clear, concise explanations
+- Use examples from the material when possible''';
+
+  // ── General Methods (no document context) ──
 
   /// Generate a quiz question for the given subject and difficulty
   static Future<LLMStreamingResult> generateQuizQuestion({
@@ -100,6 +139,89 @@ Respond naturally and provide feedback:''';
     );
   }
 
+  // ── Document-Context Methods ──
+
+  /// Generate a quiz question from document content
+  static Future<LLMStreamingResult> generateQuizFromDocument({
+    required String documentChunk,
+    required String difficulty,
+    String? previousContext,
+  }) async {
+    final prompt = '''$_quizFromDocPrompt
+
+STUDY MATERIAL:
+"""
+$documentChunk
+"""
+
+Difficulty: $difficulty
+${previousContext != null ? 'Avoid repeating: $previousContext' : ''}
+
+Generate a $difficulty question based on this material:''';
+
+    return await RunAnywhere.generateStream(
+      prompt,
+      options: const LLMGenerationOptions(
+        maxTokens: 300,
+        temperature: 0.7,
+      ),
+    );
+  }
+
+  /// Simplify a concept using document context
+  static Future<LLMStreamingResult> simplifyFromDocument({
+    required String topic,
+    required String documentChunk,
+  }) async {
+    final prompt = '''$_simplifierFromDocPrompt
+
+STUDY MATERIAL:
+"""
+$documentChunk
+"""
+
+The student asks: "$topic"
+
+Explain this using the study material:''';
+
+    return await RunAnywhere.generateStream(
+      prompt,
+      options: const LLMGenerationOptions(
+        maxTokens: 512,
+        temperature: 0.7,
+      ),
+    );
+  }
+
+  /// Conversation grounded in document content
+  static Future<LLMStreamingResult> conversationFromDocument({
+    required String userMessage,
+    required String documentChunk,
+    String? conversationHistory,
+  }) async {
+    final prompt = '''$_conversationFromDocPrompt
+
+STUDY MATERIAL:
+"""
+$documentChunk
+"""
+
+${conversationHistory != null ? 'Previous conversation:\n$conversationHistory\n' : ''}
+Student: $userMessage
+
+Answer based on the study material:''';
+
+    return await RunAnywhere.generateStream(
+      prompt,
+      options: const LLMGenerationOptions(
+        maxTokens: 400,
+        temperature: 0.7,
+      ),
+    );
+  }
+
+  // ── Parsing ──
+
   /// Parse a quiz question from LLM output
   static QuizQuestion? parseQuizQuestion(String raw) {
     try {
@@ -109,29 +231,78 @@ Respond naturally and provide feedback:''';
       final options = <String, String>{};
       String correctAnswer = '';
       String explanation = '';
+      bool collectingExplanation = false;
 
       for (final line in lines) {
         final trimmed = line.trim();
-        if (trimmed.startsWith('Q:')) {
-          question = trimmed.substring(2).trim();
-        } else if (trimmed.startsWith('A)') || trimmed.startsWith('A.')) {
-          options['A'] = trimmed.substring(2).trim();
-        } else if (trimmed.startsWith('B)') || trimmed.startsWith('B.')) {
-          options['B'] = trimmed.substring(2).trim();
-        } else if (trimmed.startsWith('C)') || trimmed.startsWith('C.')) {
-          options['C'] = trimmed.substring(2).trim();
-        } else if (trimmed.startsWith('D)') || trimmed.startsWith('D.')) {
-          options['D'] = trimmed.substring(2).trim();
-        } else if (trimmed.startsWith('ANSWER:')) {
-          correctAnswer = trimmed.substring(7).trim().toUpperCase();
-          if (correctAnswer.length > 1) correctAnswer = correctAnswer[0];
-        } else if (trimmed.startsWith('EXPLANATION:')) {
-          explanation = trimmed.substring(12).trim();
+        final upper = trimmed.toUpperCase();
+
+        // Detect question - multiple formats
+        if (upper.startsWith('Q:') || upper.startsWith('Q.') ||
+            upper.startsWith('QUESTION:') || upper.startsWith('QUESTION ')) {
+          final colonIdx = trimmed.indexOf(':');
+          if (colonIdx != -1) {
+            question = trimmed.substring(colonIdx + 1).trim();
+          } else {
+            question = trimmed.replaceFirst(RegExp(r'^Q\.\s*', caseSensitive: false), '').trim();
+          }
+          collectingExplanation = false;
+        }
+        // Detect options - multiple formats: A) A. A: (A)
+        else if (RegExp(r'^[\(\[]?[Aa][\)\.\]:]').hasMatch(trimmed)) {
+          options['A'] = trimmed.replaceFirst(RegExp(r'^[\(\[]?[Aa][\)\.\]:]\s*'), '').trim();
+          collectingExplanation = false;
+        } else if (RegExp(r'^[\(\[]?[Bb][\)\.\]:]').hasMatch(trimmed)) {
+          options['B'] = trimmed.replaceFirst(RegExp(r'^[\(\[]?[Bb][\)\.\]:]\s*'), '').trim();
+          collectingExplanation = false;
+        } else if (RegExp(r'^[\(\[]?[Cc][\)\.\]:]').hasMatch(trimmed)) {
+          options['C'] = trimmed.replaceFirst(RegExp(r'^[\(\[]?[Cc][\)\.\]:]\s*'), '').trim();
+          collectingExplanation = false;
+        } else if (RegExp(r'^[\(\[]?[Dd][\)\.\]:]').hasMatch(trimmed)) {
+          options['D'] = trimmed.replaceFirst(RegExp(r'^[\(\[]?[Dd][\)\.\]:]\s*'), '').trim();
+          collectingExplanation = false;
+        }
+        // Detect answer
+        else if (upper.startsWith('ANSWER:') || upper.startsWith('CORRECT ANSWER:') ||
+                 upper.startsWith('CORRECT:') || upper.startsWith('ANS:')) {
+          final colonIdx = trimmed.indexOf(':');
+          if (colonIdx != -1) {
+            final ansText = trimmed.substring(colonIdx + 1).trim().toUpperCase();
+            // Extract just the letter
+            final match = RegExp(r'[A-D]').firstMatch(ansText);
+            if (match != null) {
+              correctAnswer = match.group(0)!;
+            }
+          }
+          collectingExplanation = false;
+        }
+        // Detect explanation
+        else if (upper.startsWith('EXPLANATION:') || upper.startsWith('EXPLAIN:') ||
+                 upper.startsWith('REASON:') || upper.startsWith('WHY:')) {
+          final colonIdx = trimmed.indexOf(':');
+          if (colonIdx != -1) {
+            explanation = trimmed.substring(colonIdx + 1).trim();
+          }
+          collectingExplanation = true;
+        }
+        // Continue collecting multi-line explanation
+        else if (collectingExplanation && explanation.isNotEmpty) {
+          explanation += ' $trimmed';
+        }
+        // If no question found yet, and line looks like a question, treat it as one
+        else if (question.isEmpty && trimmed.endsWith('?')) {
+          question = trimmed;
         }
       }
 
-      if (question.isEmpty || options.length < 4 || correctAnswer.isEmpty) {
+      // Accept with at least 2 options (some LLMs generate fewer)
+      if (question.isEmpty || options.length < 2 || correctAnswer.isEmpty) {
         return null;
+      }
+
+      // Ensure correctAnswer matches an available option
+      if (!options.containsKey(correctAnswer)) {
+        correctAnswer = options.keys.first;
       }
 
       return QuizQuestion(

@@ -213,7 +213,7 @@ class _QuizViewState extends State<QuizView> {
                   Navigator.of(context).push(
                     PageRouteBuilder(
                       pageBuilder: (context, animation, secondaryAnimation) =>
-                          QuizSessionView(subject: topic!),
+                          QuizSessionView(subject: topic),
                       transitionsBuilder: (context, animation, secondaryAnimation, child) {
                         return FadeTransition(opacity: animation, child: child);
                       },
