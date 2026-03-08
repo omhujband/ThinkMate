@@ -37,6 +37,7 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
   bool _isGenerating = false;
   bool _isSpeaking = false;
   bool _useTextInput = false;
+  bool _isContinuousMode = true; // Added continuous mode tracking
   String _currentResponse = '';
   LLMStreamingResult? _streamingResult;
   String? _recordingPath;
@@ -66,12 +67,32 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          if (!_useTextInput)
+            IconButton(
+              icon: Icon(
+                _isContinuousMode
+                    ? Icons.all_inclusive_rounded
+                    : Icons.sync_disabled_rounded,
+                color: _isContinuousMode
+                    ? AppColors.accentCyan
+                    : AppColors.textMuted,
+              ),
+              onPressed: () =>
+                  setState(() => _isContinuousMode = !_isContinuousMode),
+              tooltip: _isContinuousMode
+                  ? 'Continuous mode ON'
+                  : 'Continuous mode OFF',
+            ),
           IconButton(
             icon: Icon(
               _useTextInput ? Icons.mic_rounded : Icons.keyboard_rounded,
               color: AppColors.accentPink,
             ),
-            onPressed: () => setState(() => _useTextInput = !_useTextInput),
+            onPressed: () => setState(() {
+              _useTextInput = !_useTextInput;
+              if (_useTextInput)
+                _isContinuousMode = false; // Disable continuous mode for text
+            }),
             tooltip: _useTextInput ? 'Switch to voice' : 'Switch to text',
           ),
           if (_messages.isNotEmpty)
@@ -130,7 +151,8 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.picture_as_pdf_rounded, size: 14, color: AppColors.accentCyan),
+          const Icon(Icons.picture_as_pdf_rounded,
+              size: 14, color: AppColors.accentCyan),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
@@ -185,7 +207,7 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
             Text(
               _useTextInput
                   ? 'Type a question about your study material\nand the AI will explain it to you.'
-                  : 'Tap the mic to ask a question about\nyour study material. The AI will respond\nwith voice and text.',
+                  : 'Tap the mic to ask a question about\nyour study material. The AI will answer\nand keep listening for your next question.',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
@@ -294,7 +316,8 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
               color: AppColors.surfaceElevated,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.person_rounded, color: AppColors.textSecondary, size: 18),
+            child: const Icon(Icons.person_rounded,
+                color: AppColors.textSecondary, size: 18),
           ),
         ],
       ),
@@ -317,7 +340,8 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
               ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.psychology_rounded, color: Colors.white, size: 18),
+            child: const Icon(Icons.psychology_rounded,
+                color: Colors.white, size: 18),
           ),
           const SizedBox(width: 10),
           Flexible(
@@ -402,7 +426,8 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.volume_up_rounded, color: AppColors.accentPink, size: 16),
+                    const Icon(Icons.volume_up_rounded,
+                        color: AppColors.accentPink, size: 16),
                     const SizedBox(width: 6),
                     Text(
                       'AI is speaking...',
@@ -429,7 +454,8 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
                           color: AppColors.error.withOpacity(0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.stop_rounded, color: AppColors.error),
+                        child: const Icon(Icons.stop_rounded,
+                            color: AppColors.error),
                       ),
                     ),
                   ),
@@ -450,7 +476,10 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
                           : (_isGenerating || _isTranscribing
                               ? null
                               : const LinearGradient(
-                                  colors: [AppColors.accentPink, Color(0xFFDB2777)],
+                                  colors: [
+                                    AppColors.accentPink,
+                                    Color(0xFFDB2777)
+                                  ],
                                 )),
                       color: _isGenerating || _isTranscribing
                           ? AppColors.surfaceElevated
@@ -491,9 +520,7 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
             Text(
               _isRecording
                   ? 'Tap to stop recording'
-                  : (_isGenerating
-                      ? 'AI is thinking...'
-                      : 'Tap to speak'),
+                  : (_isGenerating ? 'AI is thinking...' : 'Tap to speak'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.textMuted,
                   ),
@@ -590,10 +617,15 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
       if (!await _recorder.hasPermission()) return;
 
       final tempDir = await getTemporaryDirectory();
-      _recordingPath = '${tempDir.path}/voice_study_${DateTime.now().millisecondsSinceEpoch}.wav';
+      _recordingPath =
+          '${tempDir.path}/voice_study_${DateTime.now().millisecondsSinceEpoch}.wav';
 
       await _recorder.start(
-        const RecordConfig(encoder: AudioEncoder.wav),
+        const RecordConfig(
+          encoder: AudioEncoder.wav,
+          sampleRate: 16000,
+          numChannels: 1,
+        ),
         path: _recordingPath!,
       );
 
@@ -603,15 +635,15 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
     }
   }
 
-  Future<void> _stopRecording() async {
+  Future<void> _stopRecording({bool cancelled = false}) async {
     try {
       final path = await _recorder.stop();
       setState(() {
         _isRecording = false;
-        _isTranscribing = true;
+        if (!cancelled) _isTranscribing = true;
       });
 
-      if (path != null) {
+      if (path != null && !cancelled) {
         // Transcribe using RunAnywhere STT
         final modelService = context.read<ModelService>();
         if (!modelService.isSTTLoaded) {
@@ -627,6 +659,7 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
             _processQuery(transcribed);
           } else {
             setState(() => _isTranscribing = false);
+            // If empty transcription and continuous mode is on, just stop.
           }
         } else {
           setState(() => _isTranscribing = false);
@@ -668,22 +701,26 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
     try {
       // Retrieve relevant document chunk
       final docService = context.read<DocumentService>();
-      final chunk = docService.findRelevantChunk(query, document: widget.document);
+      final chunk =
+          docService.findRelevantChunk(query, document: widget.document);
 
       // Build conversation history
       final historyBuffer = StringBuffer();
       final recent = _messages.length > 6
           ? _messages.sublist(_messages.length - 6)
           : _messages;
-      for (final msg in recent.where((m) => _messages.indexOf(m) < _messages.length - 1)) {
-        historyBuffer.writeln(msg.isUser ? 'Student: ${msg.text}' : 'AI: ${msg.text}');
+      for (final msg
+          in recent.where((m) => _messages.indexOf(m) < _messages.length - 1)) {
+        historyBuffer
+            .writeln(msg.isUser ? 'Student: ${msg.text}' : 'AI: ${msg.text}');
       }
 
       // Generate response
       _streamingResult = await AiTutorService.conversationFromDocument(
         userMessage: query,
         documentChunk: chunk,
-        conversationHistory: historyBuffer.isNotEmpty ? historyBuffer.toString() : null,
+        conversationHistory:
+            historyBuffer.isNotEmpty ? historyBuffer.toString() : null,
       );
 
       await for (final token in _streamingResult!.stream) {
@@ -739,12 +776,19 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
           // Convert Float32 PCM samples to 16-bit WAV and write to temp file
           final wavBytes = _float32ToWav(result.samples, result.sampleRate);
           final tempDir = await getTemporaryDirectory();
-          final wavFile = File('${tempDir.path}/tts_output_${DateTime.now().millisecondsSinceEpoch}.wav');
+          final wavFile = File(
+              '${tempDir.path}/tts_output_${DateTime.now().millisecondsSinceEpoch}.wav');
           await wavFile.writeAsBytes(wavBytes);
 
           await _audioPlayer.play(DeviceFileSource(wavFile.path));
           _audioPlayer.onPlayerComplete.listen((_) {
-            if (mounted) setState(() => _isSpeaking = false);
+            if (mounted) {
+              setState(() => _isSpeaking = false);
+              if (_isContinuousMode && !_useTextInput) {
+                // Automatically start listening again
+                _startRecording();
+              }
+            }
             // Clean up temp WAV file
             wavFile.delete().catchError((_) => wavFile);
           });
@@ -773,7 +817,8 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
     buffer.setUint8(offset++, 0x49); // I
     buffer.setUint8(offset++, 0x46); // F
     buffer.setUint8(offset++, 0x46); // F
-    buffer.setUint32(offset, fileSize, Endian.little); offset += 4;
+    buffer.setUint32(offset, fileSize, Endian.little);
+    offset += 4;
     buffer.setUint8(offset++, 0x57); // W
     buffer.setUint8(offset++, 0x41); // A
     buffer.setUint8(offset++, 0x56); // V
@@ -784,20 +829,28 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
     buffer.setUint8(offset++, 0x6D); // m
     buffer.setUint8(offset++, 0x74); // t
     buffer.setUint8(offset++, 0x20); // space
-    buffer.setUint32(offset, 16, Endian.little); offset += 4; // subchunk size
-    buffer.setUint16(offset, 1, Endian.little); offset += 2; // PCM format
-    buffer.setUint16(offset, 1, Endian.little); offset += 2; // mono
-    buffer.setUint32(offset, sampleRate, Endian.little); offset += 4;
-    buffer.setUint32(offset, byteRate, Endian.little); offset += 4;
-    buffer.setUint16(offset, 2, Endian.little); offset += 2; // block align
-    buffer.setUint16(offset, 16, Endian.little); offset += 2; // bits per sample
+    buffer.setUint32(offset, 16, Endian.little);
+    offset += 4; // subchunk size
+    buffer.setUint16(offset, 1, Endian.little);
+    offset += 2; // PCM format
+    buffer.setUint16(offset, 1, Endian.little);
+    offset += 2; // mono
+    buffer.setUint32(offset, sampleRate, Endian.little);
+    offset += 4;
+    buffer.setUint32(offset, byteRate, Endian.little);
+    offset += 4;
+    buffer.setUint16(offset, 2, Endian.little);
+    offset += 2; // block align
+    buffer.setUint16(offset, 16, Endian.little);
+    offset += 2; // bits per sample
 
     // data subchunk
     buffer.setUint8(offset++, 0x64); // d
     buffer.setUint8(offset++, 0x61); // a
     buffer.setUint8(offset++, 0x74); // t
     buffer.setUint8(offset++, 0x61); // a
-    buffer.setUint32(offset, dataSize, Endian.little); offset += 4;
+    buffer.setUint32(offset, dataSize, Endian.little);
+    offset += 4;
 
     // Write samples as 16-bit PCM
     for (int i = 0; i < numSamples; i++) {
@@ -812,6 +865,7 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
   void _stopSpeaking() {
     _audioPlayer.stop();
     setState(() => _isSpeaking = false);
+    // Explicitly stopping kills continuous mode for this turn
   }
 
   void _stopGeneration() {

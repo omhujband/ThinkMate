@@ -1,4 +1,3 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
@@ -58,14 +57,48 @@ class HomeView extends StatelessWidget {
                         const SizedBox(height: 48),
 
                         // Documents List Header
-                        Text(
-                          'Recent Study Materials',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Recent Materials',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            if (docService.documents.isNotEmpty)
+                              TextButton.icon(
+                                onPressed: () =>
+                                    _confirmClearAll(context, docService),
+                                icon: const Icon(Icons.delete_sweep_rounded,
+                                    size: 18, color: AppColors.error),
+                                label: const Text(
+                                  'Clear All',
+                                  style: TextStyle(
+                                      color: AppColors.error, fontSize: 14),
+                                ),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  backgroundColor:
+                                      AppColors.error.withOpacity(0.1),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ).animate().fadeIn(delay: 400.ms),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 18),
                       ],
                     ),
                   ),
@@ -79,12 +112,16 @@ class HomeView extends StatelessWidget {
                       child: Center(
                         child: Column(
                           children: [
-                            const CircularProgressIndicator(color: AppColors.accentCyan),
+                            const CircularProgressIndicator(
+                                color: AppColors.accentCyan),
                             const SizedBox(height: 16),
                             Text(
                               'Processing document...\nExtracting and chunking text',
                               textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
                                     color: AppColors.textPrimary,
                                   ),
                             ),
@@ -108,14 +145,20 @@ class HomeView extends StatelessWidget {
                             const SizedBox(height: 16),
                             Text(
                               'No study materials yet',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
                                     color: AppColors.textSecondary,
                                   ),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               'Upload a PDF to start learning',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
                                     color: AppColors.textMuted,
                                   ),
                             ),
@@ -126,14 +169,17 @@ class HomeView extends StatelessWidget {
                   )
                 else
                   SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24.0, vertical: 8.0),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final doc = docService.documents[index];
                           return _buildDocumentCard(context, doc)
                               .animate()
-                              .fadeIn(delay: Duration(milliseconds: 500 + (index * 100)))
+                              .fadeIn(
+                                  delay: Duration(
+                                      milliseconds: 500 + (index * 100)))
                               .slideY(begin: 0.1);
                         },
                         childCount: docService.documents.length,
@@ -162,7 +208,8 @@ class HomeView extends StatelessWidget {
           border: Border.all(
             color: AppColors.accentCyan.withOpacity(0.3),
             width: 2,
-            style: BorderStyle.none, // Use Border.all with styling or dotted border package if desired
+            style: BorderStyle
+                .none, // Use Border.all with styling or dotted border package if desired
           ),
           boxShadow: [
             BoxShadow(
@@ -230,7 +277,8 @@ class HomeView extends StatelessWidget {
               PageRouteBuilder(
                 pageBuilder: (context, animation, secondaryAnimation) =>
                     StudyMaterialView(document: doc),
-                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                transitionsBuilder:
+                    (context, animation, secondaryAnimation, child) {
                   return FadeTransition(opacity: animation, child: child);
                 },
               ),
@@ -238,46 +286,61 @@ class HomeView extends StatelessWidget {
           },
           borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: AppColors.accentViolet.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.picture_as_pdf_rounded,
                     color: AppColors.accentViolet,
+                    size: 20,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         doc.title,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
-                        '${doc.pageCount} pages • ${doc.chunks.length} chunks',
+                        '${doc.pageCount} pgs • ${doc.chunks.length} chunks',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppColors.textMuted,
+                              fontSize: 11,
                             ),
                       ),
                     ],
                   ),
                 ),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(Icons.delete_outline_rounded,
+                      size: 18, color: AppColors.textMuted),
+                  onPressed: () => _confirmDeleteDocument(context, doc),
+                  tooltip: 'Delete',
+                ),
+                const SizedBox(width: 4),
                 const Icon(
                   Icons.chevron_right_rounded,
                   color: AppColors.textMuted,
+                  size: 20,
                 ),
               ],
             ),
@@ -287,33 +350,86 @@ class HomeView extends StatelessWidget {
     );
   }
 
+  Future<void> _confirmDeleteDocument(
+      BuildContext context, DocumentData doc) async {
+    final docService = context.read<DocumentService>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surfaceElevated,
+        title: const Text('Delete Document'),
+        content: Text('Are you sure you want to delete "${doc.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child:
+                const Text('Delete', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await docService.deleteDocument(doc.id);
+    }
+  }
+
+  Future<void> _confirmClearAll(
+      BuildContext context, DocumentService docService) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surfaceElevated,
+        title: const Text('Clear All History?'),
+        content: const Text(
+            'This will delete all uploaded study materials and clear the cache. This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Clear All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await docService.clearAllDocuments();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('History cleared successfully'),
+            backgroundColor: AppColors.accentCyan,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _pickAndUploadDocument(
       BuildContext context, DocumentService docService) async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-      );
-
-      if (result != null && result.files.single.path != null) {
-        final doc = await docService.pickAndProcessPdf();
-        final success = doc != null;
-
-        if (success && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Document processed successfully!'),
-              backgroundColor: AppColors.accentGreen,
-            ),
-          );
-        } else if (!success && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to process document.'),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
+      final doc = await docService.pickAndProcessPdf();
+      if (doc != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Document processed successfully!'),
+            backgroundColor: AppColors.accentGreen,
+          ),
+        );
       }
     } catch (e) {
       if (context.mounted) {

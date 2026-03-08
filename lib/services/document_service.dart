@@ -147,6 +147,14 @@ class DocumentService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clear all documents and history
+  Future<void> clearAllDocuments() async {
+    _documents.clear();
+    _activeDocument = null;
+    await _saveDocumentsToDisk();
+    notifyListeners();
+  }
+
   /// Find the most relevant chunk for a query using keyword overlap
   String findRelevantChunk(String query, {DocumentData? document}) {
     final doc = document ?? _activeDocument;
@@ -213,7 +221,8 @@ class DocumentService extends ChangeNotifier {
     }
   }
 
-  List<String> _chunkText(String text, {int chunkSize = 400, int overlap = 50}) {
+  List<String> _chunkText(String text,
+      {int chunkSize = 400, int overlap = 50}) {
     final words = text.split(RegExp(r'\s+'));
     if (words.length <= chunkSize) return [text.trim()];
 
