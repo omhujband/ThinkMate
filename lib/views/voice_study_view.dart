@@ -67,22 +67,6 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
-          if (!_useTextInput)
-            IconButton(
-              icon: Icon(
-                _isContinuousMode
-                    ? Icons.all_inclusive_rounded
-                    : Icons.sync_disabled_rounded,
-                color: _isContinuousMode
-                    ? AppColors.accentCyan
-                    : AppColors.textMuted,
-              ),
-              onPressed: () =>
-                  setState(() => _isContinuousMode = !_isContinuousMode),
-              tooltip: _isContinuousMode
-                  ? 'Continuous mode ON'
-                  : 'Continuous mode OFF',
-            ),
           IconButton(
             icon: Icon(
               _useTextInput ? Icons.mic_rounded : Icons.keyboard_rounded,
@@ -90,8 +74,8 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
             ),
             onPressed: () => setState(() {
               _useTextInput = !_useTextInput;
-              if (_useTextInput)
-                _isContinuousMode = false; // Disable continuous mode for text
+              // If we switch to voice, it should be continuous by default
+              _isContinuousMode = !_useTextInput;
             }),
             tooltip: _useTextInput ? 'Switch to voice' : 'Switch to text',
           ),
@@ -441,12 +425,34 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Stop speaking button
-                if (_isSpeaking)
+                // Cancel recording button
+                if (_isRecording)
                   Container(
-                    margin: const EdgeInsets.only(right: 16),
+                    margin: const EdgeInsets.only(right: 24),
                     child: GestureDetector(
-                      onTap: _stopSpeaking,
+                      onTap: () => _stopRecording(cancelled: true),
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: AppColors.textMuted.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded,
+                            color: AppColors.textMuted),
+                      ),
+                    ),
+                  ),
+
+                // Stop speaking/generating button
+                if (_isSpeaking || _isGenerating)
+                  Container(
+                    margin: const EdgeInsets.only(right: 24),
+                    child: GestureDetector(
+                      onTap: () {
+                        if (_isSpeaking) _stopSpeaking();
+                        if (_isGenerating) _stopGeneration();
+                      },
                       child: Container(
                         width: 48,
                         height: 48,
@@ -459,6 +465,7 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
                       ),
                     ),
                   ),
+
                 // Main mic button
                 GestureDetector(
                   onTap: _isGenerating || _isTranscribing
@@ -516,10 +523,10 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Text(
               _isRecording
-                  ? 'Tap to stop recording'
+                  ? 'Recording... Tap to process or \u2715 to cancel'
                   : (_isGenerating ? 'AI is thinking...' : 'Tap to speak'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.textMuted,
