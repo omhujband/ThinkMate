@@ -8,7 +8,7 @@ import 'services/model_service.dart';
 import 'services/progress_service.dart';
 import 'services/document_service.dart';
 import 'theme/app_theme.dart';
-import 'views/home_view.dart';
+import 'views/splash_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,7 +51,7 @@ class ThinkMateApp extends StatelessWidget {
       title: 'ThinkMate',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: const HomeView(),
+      home: const SplashView(),
     );
   }
 }

@@ -1,16 +1,11 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
-import '../services/progress_service.dart';
+import '../services/document_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/feature_card.dart';
-import '../widgets/stat_card.dart';
-import 'document_upload_view.dart';
-import 'quiz_view.dart';
-import 'concept_simplifier_view.dart';
-import 'language_practice_view.dart';
-import 'progress_view.dart';
+import 'study_material_view.dart';
 
 class HomeView extends StatelessWidget {
   const HomeView({super.key});
@@ -18,319 +13,317 @@ class HomeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.primaryDark,
-              Color(0xFF0F1629),
-              AppColors.primaryMid,
-            ],
+      backgroundColor: AppColors.primaryDark,
+      body: SafeArea(
+        child: Consumer<DocumentService>(
+          builder: (context, docService, child) {
+            return CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceElevated,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.psychology_rounded,
+                                color: AppColors.accentCyan,
+                                size: 28,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Text(
+                              'ThinkMate',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ).animate().fadeIn(delay: 200.ms).slideX(begin: -0.1),
+                        const SizedBox(height: 48),
+
+                        // Upload Button Area
+                        _buildUploadArea(context, docService),
+
+                        const SizedBox(height: 48),
+
+                        // Documents List Header
+                        Text(
+                          'Recent Study Materials',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ).animate().fadeIn(delay: 400.ms),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Documents List
+                if (docService.isProcessing)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            const CircularProgressIndicator(color: AppColors.accentCyan),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Processing document...\nExtracting and chunking text',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppColors.textPrimary,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                else if (docService.documents.isEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.folder_open_rounded,
+                              size: 64,
+                              color: AppColors.textMuted.withOpacity(0.5),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No study materials yet',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Upload a PDF to start learning',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.textMuted,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ).animate().fadeIn(delay: 500.ms),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final doc = docService.documents[index];
+                          return _buildDocumentCard(context, doc)
+                              .animate()
+                              .fadeIn(delay: Duration(milliseconds: 500 + (index * 100)))
+                              .slideY(begin: 0.1);
+                        },
+                        childCount: docService.documents.length,
+                      ),
+                    ),
+                  ),
+
+                const SliverToBoxAdapter(child: SizedBox(height: 40)),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUploadArea(BuildContext context, DocumentService docService) {
+    return GestureDetector(
+      onTap: () => _pickAndUploadDocument(context, docService),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceCard,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: AppColors.accentCyan.withOpacity(0.3),
+            width: 2,
+            style: BorderStyle.none, // Use Border.all with styling or dotted border package if desired
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accentCyan.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        // Draw standard border with gradient shadow indicating an interactive area
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: AppColors.accentCyan.withOpacity(0.5),
+            width: 2,
           ),
         ),
-        child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.accentCyan.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.upload_file_rounded,
+                size: 48,
+                color: AppColors.accentCyan,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Upload Study Material',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Supports PDF files up to 20MB',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+            ),
+          ],
+        ),
+      ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1),
+    );
+  }
+
+  Widget _buildDocumentCard(BuildContext context, DocumentData doc) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.textMuted.withOpacity(0.1)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                    StudyMaterialView(document: doc),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentViolet.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.picture_as_pdf_rounded,
+                    color: AppColors.accentViolet,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 12),
-                      _buildHeader(context),
-                      const SizedBox(height: 28),
-                      _buildQuickStats(context),
-                      const SizedBox(height: 28),
-                      _buildPrivacyBanner(context),
-                      const SizedBox(height: 28),
                       Text(
-                        'Learning Tools',
+                        doc.title,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${doc.pageCount} pages • ${doc.chunks.length} chunks',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppColors.textMuted,
                             ),
-                      ).animate().fadeIn(delay: 300.ms),
-                      const SizedBox(height: 16),
+                      ),
                     ],
                   ),
                 ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 25),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
-                    childAspectRatio: 0.70,
-                  ),
-                  delegate: SliverChildListDelegate([
-                    FeatureCard(
-                      title: 'Study Material',
-                      subtitle: 'Upload PDF & Learn',
-                      icon: Icons.menu_book_rounded,
-                      gradientColors: const [
-                        AppColors.accentOrange,
-                        Color(0xFFD97706),
-                      ],
-                      onTap: () => _navigateTo(context, const DocumentUploadView()),
-                    ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.2),
-                    FeatureCard(
-                      title: 'Quiz',
-                      subtitle: 'Adaptive AI Quizzes',
-                      icon: Icons.quiz_rounded,
-                      gradientColors: const [
-                        AppColors.accentCyan,
-                        Color(0xFF0EA5E9),
-                      ],
-                      onTap: () => _navigateTo(context, const QuizView()),
-                    ).animate().fadeIn(delay: 450.ms).slideY(begin: 0.2),
-                    FeatureCard(
-                      title: 'Simplify',
-                      subtitle: 'Concept Breakdown',
-                      icon: Icons.lightbulb_rounded,
-                      gradientColors: const [
-                        AppColors.accentViolet,
-                        Color(0xFF7C3AED),
-                      ],
-                      onTap: () =>
-                          _navigateTo(context, const ConceptSimplifierView()),
-                    ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.2),
-                    FeatureCard(
-                      title: 'Language',
-                      subtitle: 'Conversation Practice',
-                      icon: Icons.translate_rounded,
-                      gradientColors: const [
-                        AppColors.accentPink,
-                        Color(0xFFDB2777),
-                      ],
-                      onTap: () =>
-                          _navigateTo(context, const LanguagePracticeView()),
-                    ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.2),
-                    FeatureCard(
-                      title: 'Progress',
-                      subtitle: 'Your Learning Stats',
-                      icon: Icons.insights_rounded,
-                      gradientColors: const [
-                        AppColors.accentGreen,
-                        Color(0xFF059669),
-                      ],
-                      onTap: () =>
-                          _navigateTo(context, const ProgressView()),
-                    ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.2),
-                  ]),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: _buildModelInfo(context),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.accentCyan, AppColors.accentViolet],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.accentCyan.withOpacity(0.3),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.psychology_rounded,
-                color: Colors.white,
-                size: 32,
-              ),
-            ).animate(onPlay: (controller) => controller.repeat()).shimmer(
-                  duration: 2000.ms,
-                  color: Colors.white.withOpacity(0.3),
-                ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ThinkMate',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          letterSpacing: -1,
-                        ),
-                  ),
-                  Text(
-                    'On-Device AI Learning Companion',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.accentCyan,
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
-    ).animate().fadeIn(duration: 600.ms).slideX(begin: -0.1);
-  }
-
-  Widget _buildQuickStats(BuildContext context) {
-    return Consumer<ProgressService>(
-      builder: (context, progress, child) {
-        return Row(
-          children: [
-            Expanded(
-              child: StatCard(
-                icon: Icons.local_fire_department_rounded,
-                value: '${progress.currentStreak}',
-                label: 'Day Streak',
-                accentColor: AppColors.accentOrange,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: StatCard(
-                icon: Icons.check_circle_rounded,
-                value: '${progress.totalQuizzes}',
-                label: 'Quizzes',
-                accentColor: AppColors.accentCyan,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: StatCard(
-                icon: Icons.trending_up_rounded,
-                value: '${progress.accuracy.toStringAsFixed(0)}%',
-                label: 'Accuracy',
-                accentColor: AppColors.accentGreen,
-              ),
-            ),
-          ],
-        ).animate().fadeIn(delay: 200.ms, duration: 600.ms);
-      },
-    );
-  }
-
-  Widget _buildPrivacyBanner(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.surfaceCard.withOpacity(0.8),
-            AppColors.surfaceCard.withOpacity(0.4),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.accentCyan.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.shield_rounded,
-            color: AppColors.accentCyan.withOpacity(0.8),
-            size: 24,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Privacy-First AI',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'All AI runs on your device. No data leaves your phone.',
-                  style: Theme.of(context).textTheme.bodySmall,
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textMuted,
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    ).animate().fadeIn(delay: 250.ms, duration: 600.ms);
-  }
-
-  Widget _buildModelInfo(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCard.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.textMuted.withOpacity(0.1),
-          width: 1,
         ),
       ),
-      child: Column(
-        children: [
-          _buildInfoRow(context, icon: Icons.memory_rounded, title: 'LLM', value: 'Llama 3.2 1B'),
-          const SizedBox(height: 12),
-          _buildInfoRow(context, icon: Icons.hearing_rounded, title: 'STT', value: 'Whisper Tiny'),
-          const SizedBox(height: 12),
-          _buildInfoRow(context, icon: Icons.record_voice_over_rounded, title: 'TTS', value: 'Piper TTS'),
-        ],
-      ),
-    ).animate().fadeIn(delay: 800.ms, duration: 600.ms);
-  }
-
-  Widget _buildInfoRow(BuildContext context, {required IconData icon, required String title, required String value}) {
-    return Row(
-      children: [
-        Icon(icon, color: AppColors.textMuted, size: 20),
-        const SizedBox(width: 12),
-        Text(title, style: Theme.of(context).textTheme.bodyMedium),
-        const Spacer(),
-        Text(value, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.accentCyan)),
-      ],
     );
   }
 
-  void _navigateTo(BuildContext context, Widget page) {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => page,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.05, 0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              )),
-              child: child,
+  Future<void> _pickAndUploadDocument(
+      BuildContext context, DocumentService docService) async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final doc = await docService.pickAndProcessPdf();
+        final success = doc != null;
+
+        if (success && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Document processed successfully!'),
+              backgroundColor: AppColors.accentGreen,
             ),
           );
-        },
-        transitionDuration: const Duration(milliseconds: 300),
-      ),
-    );
+        } else if (!success && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to process document.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 }

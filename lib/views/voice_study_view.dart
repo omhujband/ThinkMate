@@ -150,7 +150,7 @@ class _VoiceStudyViewState extends State<VoiceStudyView> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

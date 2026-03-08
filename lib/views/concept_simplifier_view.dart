@@ -115,7 +115,7 @@ class _ConceptSimplifierViewState extends State<ConceptSimplifierView> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

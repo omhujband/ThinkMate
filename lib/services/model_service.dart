@@ -218,6 +218,64 @@ class ModelService extends ChangeNotifier {
     ]);
   }
 
+  /// Check if all required models are downloaded
+  Future<bool> areAllModelsDownloaded() async {
+    final results = await Future.wait([
+      isModelDownloaded(llmModelId),
+      isModelDownloaded(sttModelId),
+      isModelDownloaded(ttsModelId),
+    ]);
+    return results.every((isDownloaded) => isDownloaded);
+  }
+
+  /// Load all models into memory (assuming they are already downloaded)
+  Future<void> loadAllModels() async {
+    bool loadFailed = false;
+
+    if (!isLLMLoaded) {
+      _isLLMLoading = true;
+      notifyListeners();
+      try {
+        await RunAnywhere.loadModel(llmModelId);
+      } catch (e) {
+        print('LLM load error: $e');
+        loadFailed = true;
+      }
+      _isLLMLoading = false;
+      notifyListeners();
+    }
+
+    if (!isSTTLoaded) {
+      _isSTTLoading = true;
+      notifyListeners();
+      try {
+        await RunAnywhere.loadSTTModel(sttModelId);
+      } catch (e) {
+        print('STT load error: $e');
+        loadFailed = true;
+      }
+      _isSTTLoading = false;
+      notifyListeners();
+    }
+
+    if (!isTTSLoaded) {
+      _isTTSLoading = true;
+      notifyListeners();
+      try {
+        await RunAnywhere.loadTTSVoice(ttsModelId);
+      } catch (e) {
+        print('TTS load error: $e');
+        loadFailed = true;
+      }
+      _isTTSLoading = false;
+      notifyListeners();
+    }
+
+    if (loadFailed) {
+      throw Exception('Failed to load one or more models. Please check logs.');
+    }
+  }
+
   /// Unload all models
   Future<void> unloadAllModels() async {
     await RunAnywhere.unloadModel();
