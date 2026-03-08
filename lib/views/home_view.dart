@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../services/document_service.dart';
 import '../theme/app_theme.dart';
 import 'study_material_view.dart';
+import 'instructions_view.dart';
 
 class HomeView extends StatelessWidget {
   const HomeView({super.key});
@@ -46,6 +47,20 @@ class HomeView extends StatelessWidget {
                                   .textTheme
                                   .headlineMedium
                                   ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const InstructionsView(),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.help_outline_rounded,
+                                  color: AppColors.textSecondary),
+                              tooltip: 'How to Use',
                             ),
                           ],
                         ).animate().fadeIn(delay: 200.ms).slideX(begin: -0.1),
