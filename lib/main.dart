@@ -5,6 +5,7 @@ import 'package:runanywhere_llamacpp/runanywhere_llamacpp.dart';
 import 'package:runanywhere_onnx/runanywhere_onnx.dart';
 
 import 'services/model_service.dart';
+import 'services/progress_service.dart';
 import 'theme/app_theme.dart';
 import 'views/home_view.dart';
 
@@ -21,21 +22,28 @@ void main() async {
   // Register models
   ModelService.registerDefaultModels();
 
+  // Initialize progress tracking
+  final progressService = ProgressService();
+  await progressService.init();
+
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ModelService(),
-      child: const RunAnywhereStarterApp(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ModelService()),
+        ChangeNotifierProvider.value(value: progressService),
+      ],
+      child: const ThinkMateApp(),
     ),
   );
 }
 
-class RunAnywhereStarterApp extends StatelessWidget {
-  const RunAnywhereStarterApp({super.key});
+class ThinkMateApp extends StatelessWidget {
+  const ThinkMateApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'RunAnywhere Starter',
+      title: 'ThinkMate',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       home: const HomeView(),

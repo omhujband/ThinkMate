@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 
+import '../services/progress_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/feature_card.dart';
-import 'chat_view.dart';
-import 'speech_to_text_view.dart';
-import 'text_to_speech_view.dart';
-import 'tool_calling_view.dart';
-import 'voice_pipeline_view.dart';
+import '../widgets/stat_card.dart';
+import 'quiz_view.dart';
+import 'concept_simplifier_view.dart';
+import 'language_practice_view.dart';
+import 'progress_view.dart';
 
 class HomeView extends StatelessWidget {
   const HomeView({super.key});
@@ -36,11 +38,20 @@ class HomeView extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 12),
                       _buildHeader(context),
-                      const SizedBox(height: 40),
-                      _buildSubtitle(context),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 28),
+                      _buildQuickStats(context),
+                      const SizedBox(height: 28),
+                      _buildPrivacyBanner(context),
+                      const SizedBox(height: 28),
+                      Text(
+                        'Learning Tools',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: AppColors.textMuted,
+                            ),
+                      ).animate().fadeIn(delay: 300.ms),
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
@@ -56,66 +67,55 @@ class HomeView extends StatelessWidget {
                   ),
                   delegate: SliverChildListDelegate([
                     FeatureCard(
-                      title: 'Chat',
-                      subtitle: 'LLM Text Generation',
-                      icon: Icons.chat_bubble_outline_rounded,
+                      title: 'Quiz',
+                      subtitle: 'Adaptive AI Quizzes',
+                      icon: Icons.quiz_rounded,
                       gradientColors: const [
                         AppColors.accentCyan,
                         Color(0xFF0EA5E9),
                       ],
-                      onTap: () => _navigateTo(context, const ChatView()),
-                    ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.2),
+                      onTap: () => _navigateTo(context, const QuizView()),
+                    ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.2),
                     FeatureCard(
-                      title: 'Speech',
-                      subtitle: 'Speech to Text',
-                      icon: Icons.mic_rounded,
+                      title: 'Simplify',
+                      subtitle: 'Concept Breakdown',
+                      icon: Icons.lightbulb_rounded,
                       gradientColors: const [
                         AppColors.accentViolet,
                         Color(0xFF7C3AED),
                       ],
                       onTap: () =>
-                          _navigateTo(context, const SpeechToTextView()),
-                    ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2),
+                          _navigateTo(context, const ConceptSimplifierView()),
+                    ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.2),
                     FeatureCard(
-                      title: 'Voice',
-                      subtitle: 'Text to Speech',
-                      icon: Icons.volume_up_rounded,
+                      title: 'Language',
+                      subtitle: 'Conversation Practice',
+                      icon: Icons.translate_rounded,
                       gradientColors: const [
                         AppColors.accentPink,
                         Color(0xFFDB2777),
                       ],
                       onTap: () =>
-                          _navigateTo(context, const TextToSpeechView()),
-                    ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.2),
+                          _navigateTo(context, const LanguagePracticeView()),
+                    ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.2),
                     FeatureCard(
-                      title: 'Pipeline',
-                      subtitle: 'Voice Agent',
-                      icon: Icons.auto_awesome_rounded,
+                      title: 'Progress',
+                      subtitle: 'Your Learning Stats',
+                      icon: Icons.insights_rounded,
                       gradientColors: const [
                         AppColors.accentGreen,
                         Color(0xFF059669),
                       ],
                       onTap: () =>
-                          _navigateTo(context, const VoicePipelineView()),
-                    ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.2),
-                    FeatureCard(
-                      title: 'Tools',
-                      subtitle: 'Function Calling',
-                      icon: Icons.build_rounded,
-                      gradientColors: const [
-                        AppColors.accentOrange,
-                        Color(0xFFEA580C),
-                      ],
-                      onTap: () =>
-                          _navigateTo(context, const ToolCallingView()),
-                    ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.2),
+                          _navigateTo(context, const ProgressView()),
+                    ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.2),
                   ]),
                 ),
               ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
-                  child: _buildInfoSection(context),
+                  child: _buildModelInfo(context),
                 ),
               ),
             ],
@@ -147,7 +147,7 @@ class HomeView extends StatelessWidget {
                 ],
               ),
               child: const Icon(
-                Icons.bolt_rounded,
+                Icons.psychology_rounded,
                 color: Colors.white,
                 size: 32,
               ),
@@ -161,13 +161,13 @@ class HomeView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'RunAnywhere',
+                    'ThinkMate',
                     style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                           letterSpacing: -1,
                         ),
                   ),
                   Text(
-                    'Flutter SDK Starter',
+                    'On-Device AI Learning Companion',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.accentCyan,
                           fontWeight: FontWeight.w500,
@@ -182,9 +182,46 @@ class HomeView extends StatelessWidget {
     ).animate().fadeIn(duration: 600.ms).slideX(begin: -0.1);
   }
 
-  Widget _buildSubtitle(BuildContext context) {
+  Widget _buildQuickStats(BuildContext context) {
+    return Consumer<ProgressService>(
+      builder: (context, progress, child) {
+        return Row(
+          children: [
+            Expanded(
+              child: StatCard(
+                icon: Icons.local_fire_department_rounded,
+                value: '${progress.currentStreak}',
+                label: 'Day Streak',
+                accentColor: AppColors.accentOrange,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: StatCard(
+                icon: Icons.check_circle_rounded,
+                value: '${progress.totalQuizzes}',
+                label: 'Quizzes',
+                accentColor: AppColors.accentCyan,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: StatCard(
+                icon: Icons.trending_up_rounded,
+                value: '${progress.accuracy.toStringAsFixed(0)}%',
+                label: 'Accuracy',
+                accentColor: AppColors.accentGreen,
+              ),
+            ),
+          ],
+        ).animate().fadeIn(delay: 200.ms, duration: 600.ms);
+      },
+    );
+  }
+
+  Widget _buildPrivacyBanner(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -192,7 +229,7 @@ class HomeView extends StatelessWidget {
             AppColors.surfaceCard.withOpacity(0.4),
           ],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: AppColors.accentCyan.withOpacity(0.2),
           width: 1,
@@ -201,22 +238,22 @@ class HomeView extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            Icons.privacy_tip_rounded,
+            Icons.shield_rounded,
             color: AppColors.accentCyan.withOpacity(0.8),
-            size: 28,
+            size: 24,
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Privacy-First On-Device AI',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  'Privacy-First AI',
+                  style: Theme.of(context).textTheme.labelLarge,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
-                  'All AI processing happens locally on your device. No data ever leaves your phone.',
+                  'All AI runs on your device. No data leaves your phone.',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -224,10 +261,10 @@ class HomeView extends StatelessWidget {
           ),
         ],
       ),
-    ).animate().fadeIn(delay: 500.ms, duration: 600.ms);
+    ).animate().fadeIn(delay: 250.ms, duration: 600.ms);
   }
 
-  Widget _buildInfoSection(BuildContext context) {
+  Widget _buildModelInfo(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -240,52 +277,24 @@ class HomeView extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _buildInfoRow(
-            context,
-            icon: Icons.memory_rounded,
-            title: 'LLM',
-            value: 'SmolLM2 360M',
-          ),
+          _buildInfoRow(context, icon: Icons.memory_rounded, title: 'LLM', value: 'Llama 3.2 1B'),
           const SizedBox(height: 12),
-          _buildInfoRow(
-            context,
-            icon: Icons.hearing_rounded,
-            title: 'STT',
-            value: 'Whisper Tiny',
-          ),
+          _buildInfoRow(context, icon: Icons.hearing_rounded, title: 'STT', value: 'Whisper Tiny'),
           const SizedBox(height: 12),
-          _buildInfoRow(
-            context,
-            icon: Icons.record_voice_over_rounded,
-            title: 'TTS',
-            value: 'Kokoro',
-          ),
+          _buildInfoRow(context, icon: Icons.record_voice_over_rounded, title: 'TTS', value: 'Piper TTS'),
         ],
       ),
-    ).animate().fadeIn(delay: 600.ms, duration: 600.ms);
+    ).animate().fadeIn(delay: 800.ms, duration: 600.ms);
   }
 
-  Widget _buildInfoRow(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String value,
-  }) {
+  Widget _buildInfoRow(BuildContext context, {required IconData icon, required String title, required String value}) {
     return Row(
       children: [
         Icon(icon, color: AppColors.textMuted, size: 20),
         const SizedBox(width: 12),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
+        Text(title, style: Theme.of(context).textTheme.bodyMedium),
         const Spacer(),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.accentCyan,
-              ),
-        ),
+        Text(value, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.accentCyan)),
       ],
     );
   }
