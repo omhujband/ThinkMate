@@ -1,45 +1,55 @@
+import 'dart:convert';
 import 'package:runanywhere/runanywhere.dart';
 
 /// AI Tutor service that wraps RunAnywhere LLM with educational prompts
 class AiTutorService {
   // ── System Prompts ──
 
-  static const _quizSystemPrompt = '''You are a quiz generator for students. Generate exactly one multiple-choice question.
+  static const _quizSystemPrompt =
+      '''You are a quiz generator for students. Generate exactly one multiple-choice question.
 
 RULES:
-- Output ONLY in this exact format, nothing else
-- One question with exactly 4 options labeled A, B, C, D
-- One correct answer letter
-- A brief explanation
+- Output ONLY valid JSON, nothing else before or after.
+- Do not use markdown blocks (e.g. ```json). Just output the raw JSON object.
+- The JSON object must have exactly these keys: "question", "options" (an object with keys "A", "B", "C", "D"), "correctAnswer" (must be "A", "B", "C", or "D"), and "explanation".
 
 FORMAT:
-Q: [question text]
-A) [option A]
-B) [option B]
-C) [option C]
-D) [option D]
-ANSWER: [letter]
-EXPLANATION: [brief explanation]''';
+{
+  "question": "question text here",
+  "options": {
+    "A": "option A",
+    "B": "option B",
+    "C": "option C",
+    "D": "option D"
+  },
+  "correctAnswer": "A",
+  "explanation": "brief explanation"
+}''';
 
-  static const _quizFromDocPrompt = '''You are a quiz generator. Generate exactly one multiple-choice question based ONLY on the provided study material.
+  static const _quizFromDocPrompt =
+      '''You are a quiz generator. Generate exactly one multiple-choice question based ONLY on the provided study material.
 
 RULES:
-- The question MUST be answerable from the provided content
-- Output ONLY in this exact format
-- One question with exactly 4 options labeled A, B, C, D
-- One correct answer letter
-- A brief explanation referencing the material
+- The question MUST be answerable from the provided content.
+- Output ONLY valid JSON, nothing else before or after.
+- Do not use markdown blocks (e.g. ```json). Just output the raw JSON object.
+- The JSON object must have exactly these keys: "question", "options" (an object with keys "A", "B", "C", "D"), "correctAnswer" (must be "A", "B", "C", or "D"), and "explanation".
 
 FORMAT:
-Q: [question text]
-A) [option A]
-B) [option B]
-C) [option C]
-D) [option D]
-ANSWER: [letter]
-EXPLANATION: [brief explanation]''';
+{
+  "question": "question text here",
+  "options": {
+    "A": "option A",
+    "B": "option B",
+    "C": "option C",
+    "D": "option D"
+  },
+  "correctAnswer": "A",
+  "explanation": "brief explanation referencing material"
+}''';
 
-  static const _simplifierSystemPrompt = '''You are ThinkMate, a friendly AI tutor that simplifies complex topics for students.
+  static const _simplifierSystemPrompt =
+      '''You are ThinkMate, a friendly AI tutor that simplifies complex topics for students.
 
 RULES:
 - Break down the concept into simple, easy-to-understand steps
@@ -48,7 +58,8 @@ RULES:
 - Use numbered steps when explaining processes
 - End with a brief summary''';
 
-  static const _simplifierFromDocPrompt = '''You are ThinkMate, a friendly AI tutor. Explain the concept using ONLY the provided study material as your knowledge source.
+  static const _simplifierFromDocPrompt =
+      '''You are ThinkMate, a friendly AI tutor. Explain the concept using ONLY the provided study material as your knowledge source.
 
 RULES:
 - Use ONLY information from the provided material
@@ -56,7 +67,8 @@ RULES:
 - Use examples from the material when possible
 - Keep language simple and engaging''';
 
-  static const _languagePracticePrompt = '''You are a language conversation partner for English practice.
+  static const _languagePracticePrompt =
+      '''You are a language conversation partner for English practice.
 
 RULES:
 - Respond naturally to continue the conversation
@@ -65,7 +77,8 @@ RULES:
 - Keep responses conversational and encouraging
 - If the user's message has errors, gently correct them in the feedback''';
 
-  static const _conversationFromDocPrompt = '''You are ThinkMate, a friendly AI study tutor. Answer the student's question using ONLY the provided study material.
+  static const _conversationFromDocPrompt =
+      '''You are ThinkMate, a friendly AI study tutor. Answer the student's question using ONLY the provided study material.
 
 RULES:
 - Use ONLY information from the provided material to answer
@@ -225,77 +238,24 @@ Answer based on the study material:''';
   /// Parse a quiz question from LLM output
   static QuizQuestion? parseQuizQuestion(String raw) {
     try {
-      final lines = raw.split('\n').where((l) => l.trim().isNotEmpty).toList();
-
-      String question = '';
-      final options = <String, String>{};
-      String correctAnswer = '';
-      String explanation = '';
-      bool collectingExplanation = false;
-
-      for (final line in lines) {
-        final trimmed = line.trim();
-        final upper = trimmed.toUpperCase();
-
-        // Detect question - multiple formats
-        if (upper.startsWith('Q:') || upper.startsWith('Q.') ||
-            upper.startsWith('QUESTION:') || upper.startsWith('QUESTION ')) {
-          final colonIdx = trimmed.indexOf(':');
-          if (colonIdx != -1) {
-            question = trimmed.substring(colonIdx + 1).trim();
-          } else {
-            question = trimmed.replaceFirst(RegExp(r'^Q\.\s*', caseSensitive: false), '').trim();
-          }
-          collectingExplanation = false;
-        }
-        // Detect options - multiple formats: A) A. A: (A)
-        else if (RegExp(r'^[\(\[]?[Aa][\)\.\]:]').hasMatch(trimmed)) {
-          options['A'] = trimmed.replaceFirst(RegExp(r'^[\(\[]?[Aa][\)\.\]:]\s*'), '').trim();
-          collectingExplanation = false;
-        } else if (RegExp(r'^[\(\[]?[Bb][\)\.\]:]').hasMatch(trimmed)) {
-          options['B'] = trimmed.replaceFirst(RegExp(r'^[\(\[]?[Bb][\)\.\]:]\s*'), '').trim();
-          collectingExplanation = false;
-        } else if (RegExp(r'^[\(\[]?[Cc][\)\.\]:]').hasMatch(trimmed)) {
-          options['C'] = trimmed.replaceFirst(RegExp(r'^[\(\[]?[Cc][\)\.\]:]\s*'), '').trim();
-          collectingExplanation = false;
-        } else if (RegExp(r'^[\(\[]?[Dd][\)\.\]:]').hasMatch(trimmed)) {
-          options['D'] = trimmed.replaceFirst(RegExp(r'^[\(\[]?[Dd][\)\.\]:]\s*'), '').trim();
-          collectingExplanation = false;
-        }
-        // Detect answer
-        else if (upper.startsWith('ANSWER:') || upper.startsWith('CORRECT ANSWER:') ||
-                 upper.startsWith('CORRECT:') || upper.startsWith('ANS:')) {
-          final colonIdx = trimmed.indexOf(':');
-          if (colonIdx != -1) {
-            final ansText = trimmed.substring(colonIdx + 1).trim().toUpperCase();
-            // Extract just the letter
-            final match = RegExp(r'[A-D]').firstMatch(ansText);
-            if (match != null) {
-              correctAnswer = match.group(0)!;
-            }
-          }
-          collectingExplanation = false;
-        }
-        // Detect explanation
-        else if (upper.startsWith('EXPLANATION:') || upper.startsWith('EXPLAIN:') ||
-                 upper.startsWith('REASON:') || upper.startsWith('WHY:')) {
-          final colonIdx = trimmed.indexOf(':');
-          if (colonIdx != -1) {
-            explanation = trimmed.substring(colonIdx + 1).trim();
-          }
-          collectingExplanation = true;
-        }
-        // Continue collecting multi-line explanation
-        else if (collectingExplanation && explanation.isNotEmpty) {
-          explanation += ' $trimmed';
-        }
-        // If no question found yet, and line looks like a question, treat it as one
-        else if (question.isEmpty && trimmed.endsWith('?')) {
-          question = trimmed;
-        }
+      // Find the first { and last } to extract the JSON block, ignoring any conversational padding
+      final startIdx = raw.indexOf('{');
+      final endIdx = raw.lastIndexOf('}');
+      if (startIdx == -1 || endIdx == -1 || endIdx <= startIdx) {
+        return null; // Not valid JSON
       }
 
-      // Accept with at least 2 options (some LLMs generate fewer)
+      final jsonString = raw.substring(startIdx, endIdx + 1);
+      final data = jsonDecode(jsonString) as Map<String, dynamic>;
+
+      final question = data['question']?.toString() ?? '';
+      final optionsRaw = data['options'] as Map<String, dynamic>? ?? {};
+      final options =
+          optionsRaw.map((k, v) => MapEntry(k.toString(), v.toString()));
+      var correctAnswer = data['correctAnswer']?.toString().toUpperCase() ?? '';
+      var explanation = data['explanation']?.toString() ?? '';
+
+      // Validate required fields
       if (question.isEmpty || options.length < 2 || correctAnswer.isEmpty) {
         return null;
       }
@@ -309,7 +269,9 @@ Answer based on the study material:''';
         question: question,
         options: options,
         correctAnswer: correctAnswer,
-        explanation: explanation.isEmpty ? 'The correct answer is $correctAnswer.' : explanation,
+        explanation: explanation.isEmpty
+            ? 'The correct answer is $correctAnswer.'
+            : explanation,
       );
     } catch (_) {
       return null;
